@@ -1,0 +1,39 @@
+{
+  "name": "azure-devops-work-items-creator",
+  "version": "1.0.0",
+  "description": "CLI tool to create Azure DevOps work items with PM-driven refinement (Epic → Feature → User Stories)",
+  "main": "dist/index.js",
+  "bin": {
+    "ado-creator": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:property": "vitest run tests/property",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration"
+  },
+  "keywords": [
+    "azure-devops",
+    "work-items",
+    "cli",
+    "pm-skill"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "azure-devops-node-api": "^14.1.0",
+    "dotenv": "^16.4.7",
+    "inquirer": "^9.3.7"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^20.17.0",
+    "fast-check": "^3.23.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8",
+    "ts-node": "^10.9.2"
+  }
+}
