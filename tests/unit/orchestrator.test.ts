@@ -70,6 +70,8 @@ function createMockAdoClient(): IAzureDevOpsClient {
         title: params.title,
       };
     }),
+    listWorkItemsByBoardColumn: vi.fn().mockResolvedValue([]),
+    getWorkItemComments: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -305,6 +307,8 @@ describe('Orchestrator', () => {
             title: params.title,
           };
         }),
+        listWorkItemsByBoardColumn: vi.fn().mockResolvedValue([]),
+        getWorkItemComments: vi.fn().mockResolvedValue([]),
       };
 
       const orchestrator = new Orchestrator(cli, undefined, undefined, adoClient);

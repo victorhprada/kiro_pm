@@ -29,12 +29,60 @@ export interface CreateWorkItemParams {
   createdItems?: WorkItemResult[];
 }
 
+/**
+ * Filtros para localizar cards em uma coluna específica do board de um time.
+ *
+ * Observação: `System.BoardColumn` é o nome da raia/coluna no board do time
+ * — pode variar entre times (ex.: "Deploy", "Em Deploy", "Pronto para Deploy").
+ */
+export interface ListByBoardColumnParams {
+  /** Nome do projeto (ex.: "Wiipo"). */
+  projectName: string;
+  /** AreaPath sob o qual filtrar (ex.: "Wiipo\\Holerite"). */
+  areaPath: string;
+  /** Nome exato da coluna do board (ex.: "Deploy"). */
+  boardColumn: string;
+  /**
+   * Lista opcional de estados a excluir. Por padrão, exclui "Closed" e "Removed"
+   * para evitar trazer cards já encerrados.
+   */
+  excludeStates?: string[];
+}
+
+/** Resumo de um card retornado por uma busca em coluna do board. */
+export interface BoardWorkItem {
+  id: number;
+  title: string;
+  workItemType: string;
+  state: string;
+  boardColumn: string;
+  areaPath: string;
+  url: string;
+}
+
+/** Comentário de um work item, com texto plano e HTML renderizado quando disponível. */
+export interface WorkItemComment {
+  id: number;
+  workItemId: number;
+  text: string;
+  renderedText?: string;
+  createdBy?: string;
+  createdDate?: Date;
+}
+
 export interface IAzureDevOpsClient {
   validateConnection(): Promise<boolean>;
   listProjects(): Promise<Project[]>;
   listTeams(projectId: string): Promise<Team[]>;
   listSprints(projectId: string, teamId: string): Promise<Sprint[]>;
   createWorkItem(params: CreateWorkItemParams): Promise<WorkItemResult>;
+  listWorkItemsByBoardColumn(
+    params: ListByBoardColumnParams
+  ): Promise<BoardWorkItem[]>;
+  getWorkItemComments(
+    projectName: string,
+    workItemId: number
+  ): Promise<WorkItemComment[]>;
 }
 
 // ─── Retry Configuration ────────────────────────────────────────────────────
@@ -254,6 +302,136 @@ export class AzureDevOpsClient implements IAzureDevOpsClient {
         params.createdItems || []
       );
     }
+  }
+
+  // ─── Private Helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Lista cards de um time que estão em uma coluna específica do board.
+   *
+   * Usa WIQL filtrando por `System.AreaPath` e `System.BoardColumn`. Por padrão
+   * exclui cards em estado "Closed" / "Removed" para focar no trabalho ativo.
+   *
+   * Após o WIQL (que retorna apenas IDs), faz um segundo round trip via
+   * `getWorkItems` para hidratar título, tipo, estado e coluna de cada card.
+   */
+  async listWorkItemsByBoardColumn(
+    params: ListByBoardColumnParams
+  ): Promise<BoardWorkItem[]> {
+    return this.withRetry(async () => {
+      const witApi: IWorkItemTrackingApi =
+        await this.connection.getWorkItemTrackingApi();
+
+      const excludeStates = params.excludeStates ?? ['Closed', 'Removed'];
+
+      // Escapa aspas simples para evitar quebra de WIQL
+      const escapedAreaPath = params.areaPath.replace(/'/g, "''");
+      const escapedColumn = params.boardColumn.replace(/'/g, "''");
+      const stateClause = excludeStates.length
+        ? ` AND [System.State] NOT IN (${excludeStates
+            .map((s) => `'${s.replace(/'/g, "''")}'`)
+            .join(', ')})`
+        : '';
+
+      const wiql = {
+        query: `SELECT [System.Id] FROM WorkItems
+                WHERE [System.AreaPath] UNDER '${escapedAreaPath}'
+                  AND [System.BoardColumn] = '${escapedColumn}'${stateClause}`,
+      };
+
+      const queryResult = await witApi.queryByWiql(wiql, {
+        project: params.projectName,
+      });
+
+      const ids = (queryResult?.workItems || [])
+        .map((w) => w.id)
+        .filter((id): id is number => typeof id === 'number');
+
+      if (ids.length === 0) {
+        return [];
+      }
+
+      // Hidrata os campos relevantes em uma única chamada batched
+      const workItems = await witApi.getWorkItems(
+        ids,
+        [
+          'System.Id',
+          'System.Title',
+          'System.WorkItemType',
+          'System.State',
+          'System.BoardColumn',
+          'System.AreaPath',
+        ],
+        undefined,
+        undefined,
+        undefined,
+        params.projectName
+      );
+
+      return (workItems || []).map((wi) => {
+        const fields = wi.fields || {};
+        return {
+          id: wi.id ?? 0,
+          title: fields['System.Title'] ?? '',
+          workItemType: fields['System.WorkItemType'] ?? '',
+          state: fields['System.State'] ?? '',
+          boardColumn: fields['System.BoardColumn'] ?? '',
+          areaPath: fields['System.AreaPath'] ?? '',
+          url: (wi as any)._links?.html?.href || wi.url || '',
+        };
+      });
+    });
+  }
+
+  /**
+   * Busca os comentários de um work item.
+   *
+   * Solicita `RenderedText` no expand para obter tanto o texto cru (markdown)
+   * quanto o HTML renderizado — útil para extrair URLs que possam vir só dentro
+   * de tags `<a href="...">`.
+   */
+  async getWorkItemComments(
+    projectName: string,
+    workItemId: number
+  ): Promise<WorkItemComment[]> {
+    return this.withRetry(async () => {
+      const witApi: IWorkItemTrackingApi =
+        await this.connection.getWorkItemTrackingApi();
+
+      // 1 = Reactions, 8 = RenderedText (CommentExpandOptions)
+      const RENDERED_TEXT_EXPAND = 8;
+
+      const allComments: WorkItemComment[] = [];
+      let continuationToken: string | undefined;
+
+      // Pagina via continuation token para cobrir cards com muitos comentários
+      do {
+        const result: any = await witApi.getComments(
+          projectName,
+          workItemId,
+          undefined, // top
+          continuationToken,
+          false, // includeDeleted
+          RENDERED_TEXT_EXPAND as any
+        );
+
+        const batch = (result?.comments || []) as Array<any>;
+        for (const c of batch) {
+          allComments.push({
+            id: c.id ?? 0,
+            workItemId: c.workItemId ?? workItemId,
+            text: c.text ?? '',
+            renderedText: c.renderedText ?? undefined,
+            createdBy: c.createdBy?.displayName ?? c.createdBy?.uniqueName,
+            createdDate: c.createdDate ? new Date(c.createdDate) : undefined,
+          });
+        }
+
+        continuationToken = result?.continuationToken || undefined;
+      } while (continuationToken);
+
+      return allComments;
+    });
   }
 
   // ─── Private Helpers ────────────────────────────────────────────────────────

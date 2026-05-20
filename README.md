@@ -73,7 +73,7 @@ Ao criar work items, os seguintes campos customizados são incluídos automatica
 |-------|-------------|--------------|
 | `Custom.SR_ENTREGA` | Epic, Feature, US | `Não informada` |
 | `Custom.SR_TEM_IMPACTO_LGPD` | Epic, Feature, US | `Não` |
-| `Custom.SR_RELEASE` | Epic, Feature, US | `2026 R1` |
+| `Custom.SR_RELEASE` | Epic, Feature, US | `2026 R2` |
 | `Custom.SR_TIPO_DE_DEMANDA` | Epic | `Evolução tecnológica` |
 | `Custom.SR_PACOTES` | Feature, US | `Não se aplica` |
 
@@ -106,7 +106,11 @@ pm_wiipo/
 │   │   └── config-manager.ts       # Carregamento de .env
 │   └── presentation/
 │       └── cli.ts                  # Interface interativa (fallback)
-├── demandas/                       # Demandas geradas (.md)
+├── demandas/                       # Demandas geradas (.md) — no .gitignore
+│   ├── holerite/
+│   ├── plataforma/
+│   └── sre/
+├── entregas-mensais/               # Resumos mensais por time — no .gitignore
 │   ├── holerite/
 │   └── plataforma/
 ├── tests/

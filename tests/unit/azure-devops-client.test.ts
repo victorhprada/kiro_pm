@@ -602,4 +602,227 @@ describe('AzureDevOpsClient', () => {
       );
     });
   });
+
+  describe('listWorkItemsByBoardColumn', () => {
+    it('queries WIQL filtering by area path and board column and hydrates fields', async () => {
+      const mockQueryByWiql = vi.fn().mockResolvedValue({
+        workItems: [{ id: 11 }, { id: 12 }],
+      });
+      const mockGetWorkItems = vi.fn().mockResolvedValue([
+        {
+          id: 11,
+          url: 'https://dev.azure.com/test-org/_apis/wit/workItems/11',
+          _links: { html: { href: 'https://dev.azure.com/test-org/_workitems/edit/11' } },
+          fields: {
+            'System.Id': 11,
+            'System.Title': 'Card A',
+            'System.WorkItemType': 'User Story',
+            'System.State': 'Active',
+            'System.BoardColumn': 'Deploy',
+            'System.AreaPath': 'Wiipo\\Holerite',
+          },
+        },
+        {
+          id: 12,
+          url: 'https://dev.azure.com/test-org/_apis/wit/workItems/12',
+          _links: { html: { href: 'https://dev.azure.com/test-org/_workitems/edit/12' } },
+          fields: {
+            'System.Id': 12,
+            'System.Title': 'Card B',
+            'System.WorkItemType': 'Feature',
+            'System.State': 'Resolved',
+            'System.BoardColumn': 'Deploy',
+            'System.AreaPath': 'Wiipo\\Holerite',
+          },
+        },
+      ]);
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        queryByWiql: mockQueryByWiql,
+        getWorkItems: mockGetWorkItems,
+      });
+
+      const result = await client.listWorkItemsByBoardColumn({
+        projectName: 'Wiipo',
+        areaPath: 'Wiipo\\Holerite',
+        boardColumn: 'Deploy',
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 11,
+        title: 'Card A',
+        workItemType: 'User Story',
+        state: 'Active',
+        boardColumn: 'Deploy',
+        areaPath: 'Wiipo\\Holerite',
+        url: 'https://dev.azure.com/test-org/_workitems/edit/11',
+      });
+
+      // WIQL gets the team context project
+      const [wiql, teamContext] = mockQueryByWiql.mock.calls[0];
+      expect(wiql.query).toContain("[System.AreaPath] UNDER 'Wiipo\\Holerite'");
+      expect(wiql.query).toContain("[System.BoardColumn] = 'Deploy'");
+      expect(wiql.query).toContain("[System.State] NOT IN");
+      expect(teamContext).toEqual({ project: 'Wiipo' });
+
+      // getWorkItems is called with the IDs and the project scope
+      expect(mockGetWorkItems).toHaveBeenCalledWith(
+        [11, 12],
+        expect.arrayContaining(['System.Title', 'System.BoardColumn']),
+        undefined,
+        undefined,
+        undefined,
+        'Wiipo'
+      );
+    });
+
+    it('returns empty array and skips getWorkItems when WIQL returns no IDs', async () => {
+      const mockQueryByWiql = vi.fn().mockResolvedValue({ workItems: [] });
+      const mockGetWorkItems = vi.fn();
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        queryByWiql: mockQueryByWiql,
+        getWorkItems: mockGetWorkItems,
+      });
+
+      const result = await client.listWorkItemsByBoardColumn({
+        projectName: 'Wiipo',
+        areaPath: 'Wiipo\\Holerite',
+        boardColumn: 'Deploy',
+      });
+
+      expect(result).toEqual([]);
+      expect(mockGetWorkItems).not.toHaveBeenCalled();
+    });
+
+    it('honours custom excludeStates list in the WIQL', async () => {
+      const mockQueryByWiql = vi.fn().mockResolvedValue({ workItems: [] });
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        queryByWiql: mockQueryByWiql,
+        getWorkItems: vi.fn(),
+      });
+
+      await client.listWorkItemsByBoardColumn({
+        projectName: 'Wiipo',
+        areaPath: 'Wiipo\\Holerite',
+        boardColumn: 'Deploy',
+        excludeStates: ['Cancelled'],
+      });
+
+      const [wiql] = mockQueryByWiql.mock.calls[0];
+      expect(wiql.query).toContain("[System.State] NOT IN ('Cancelled')");
+    });
+
+    it('omits the state filter when excludeStates is an empty array', async () => {
+      const mockQueryByWiql = vi.fn().mockResolvedValue({ workItems: [] });
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        queryByWiql: mockQueryByWiql,
+        getWorkItems: vi.fn(),
+      });
+
+      await client.listWorkItemsByBoardColumn({
+        projectName: 'Wiipo',
+        areaPath: 'Wiipo\\Holerite',
+        boardColumn: 'Deploy',
+        excludeStates: [],
+      });
+
+      const [wiql] = mockQueryByWiql.mock.calls[0];
+      expect(wiql.query).not.toContain('[System.State]');
+    });
+
+    it("escapes single quotes in area path and board column to avoid WIQL injection", async () => {
+      const mockQueryByWiql = vi.fn().mockResolvedValue({ workItems: [] });
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        queryByWiql: mockQueryByWiql,
+        getWorkItems: vi.fn(),
+      });
+
+      await client.listWorkItemsByBoardColumn({
+        projectName: 'Wiipo',
+        areaPath: "Wiipo\\O'Brien",
+        boardColumn: "Pronto p'ra Deploy",
+      });
+
+      const [wiql] = mockQueryByWiql.mock.calls[0];
+      expect(wiql.query).toContain("[System.AreaPath] UNDER 'Wiipo\\O''Brien'");
+      expect(wiql.query).toContain("[System.BoardColumn] = 'Pronto p''ra Deploy'");
+    });
+  });
+
+  describe('getWorkItemComments', () => {
+    it('returns mapped comments with text, renderedText, author and date', async () => {
+      const mockGetComments = vi.fn().mockResolvedValue({
+        comments: [
+          {
+            id: 1,
+            workItemId: 100,
+            text: 'PR https://github.com/wiipobr/wiipo-platform/pull/1',
+            renderedText:
+              '<a href="https://github.com/wiipobr/wiipo-platform/pull/1">PR</a>',
+            createdBy: { displayName: 'Alice', uniqueName: 'alice@wiipo' },
+            createdDate: '2026-05-19T12:00:00Z',
+          },
+          {
+            id: 2,
+            workItemId: 100,
+            text: 'Pronto pra subir',
+            renderedText: '<p>Pronto pra subir</p>',
+            createdBy: { displayName: 'Bob' },
+            createdDate: '2026-05-19T13:00:00Z',
+          },
+        ],
+        continuationToken: undefined,
+      });
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        getComments: mockGetComments,
+      });
+
+      const result = await client.getWorkItemComments('Wiipo', 100);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({
+        id: 1,
+        workItemId: 100,
+        text: 'PR https://github.com/wiipobr/wiipo-platform/pull/1',
+        renderedText:
+          '<a href="https://github.com/wiipobr/wiipo-platform/pull/1">PR</a>',
+        createdBy: 'Alice',
+        createdDate: new Date('2026-05-19T12:00:00Z'),
+      });
+      expect(result[1].createdBy).toBe('Bob');
+    });
+
+    it('paginates via continuationToken until exhausted', async () => {
+      const mockGetComments = vi
+        .fn()
+        .mockResolvedValueOnce({
+          comments: [{ id: 1, workItemId: 7, text: 'A' }],
+          continuationToken: 'page-2',
+        })
+        .mockResolvedValueOnce({
+          comments: [{ id: 2, workItemId: 7, text: 'B' }],
+          continuationToken: undefined,
+        });
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        getComments: mockGetComments,
+      });
+
+      const result = await client.getWorkItemComments('Wiipo', 7);
+      expect(result.map((c) => c.text)).toEqual(['A', 'B']);
+      expect(mockGetComments).toHaveBeenCalledTimes(2);
+
+      const secondCallArgs = mockGetComments.mock.calls[1];
+      expect(secondCallArgs[3]).toBe('page-2'); // continuationToken position
+    });
+
+    it('returns empty array when the API returns no comments', async () => {
+      const mockGetComments = vi.fn().mockResolvedValue({ comments: [] });
+      mockGetWorkItemTrackingApi.mockResolvedValue({
+        getComments: mockGetComments,
+      });
+
+      const result = await client.getWorkItemComments('Wiipo', 7);
+      expect(result).toEqual([]);
+    });
+  });
 });

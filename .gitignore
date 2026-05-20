@@ -20,3 +20,9 @@ coverage/
 
 # Logs
 *.log
+
+# Demandas (fonte de verdade é o Azure DevOps)
+demandas/
+
+# Entregas mensais (fonte de verdade é o Azure DevOps)
+entregas-mensais/
