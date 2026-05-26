@@ -183,10 +183,16 @@ Estruture rigorosamente nesta ordem:
 
 ## 3. Salvar o arquivo .md
 
-Estrutura de pastas:
+Estrutura de pastas (organização por **time solicitante**, não por sistema que vai subir):
 ```
-demandas/sre/{nome-do-deploy-em-kebab-case}.md
+demandas/sre/{time-solicitante}/{nome-do-deploy-em-kebab-case}.md
 ```
+
+Times atuais com pasta:
+- `demandas/sre/holerite/` — deploys solicitados pelo time Holerite (mesmo que o sistema seja Plataforma, BD Plataforma etc.)
+- `demandas/sre/plataforma/` — deploys solicitados pelo time Plataforma
+
+Crie nova subpasta sob `demandas/sre/` quando aparecer um time novo (Flex, SuperApp, Helpii, Convenix etc.). O critério é **quem solicitou o deploy / é dono da aprovação**, não o produto que será impactado.
 
 Formato do .md (espelha o que vai pro Azure, sem HTML):
 
@@ -346,6 +352,6 @@ Qualquer dúvida, estou à disposição!
 - **Nunca inventar** PRs, IDs, justificativas ou dados técnicos.
 - Se o usuário passar IDs/URLs do Azure DevOps, **consultar a API** antes de perguntar — extrair título, descrição e área para já preencher campos do template.
 - Se faltar info crítica e não for inferível, fazer **no máximo 2-3 perguntas pontuais**.
-- O `.md` em `demandas/sre/` é a fonte de verdade local — sempre salvar antes de criar no Azure.
+- O `.md` em `demandas/sre/{time-solicitante}/` é a fonte de verdade local — sempre salvar antes de criar no Azure.
 - Cada deploy = 1 arquivo `.md`.
 - Tom: profissional e técnico; use formatação clara (Markdown e HTML).

@@ -26,3 +26,6 @@ demandas/
 
 # Entregas mensais (fonte de verdade é o Azure DevOps)
 entregas-mensais/
+
+# Comunicação interna (rascunhos locais — não versionar)
+comunicacao/
