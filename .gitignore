@@ -29,3 +29,6 @@ entregas-mensais/
 
 # Comunicação interna (rascunhos locais — não versionar)
 comunicacao/
+
+# Scripts de criação de demandas no Azure (one-shot, não versionar)
+scripts/create-*
