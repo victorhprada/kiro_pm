@@ -107,17 +107,30 @@ Quando o usuário aprovar, crie os work items no Azure DevOps usando a API:
 
 Usar o script em `dist/index.js` ou chamar a API diretamente via node script inline.
 
+> **Referência completa de campos por tipo:** ver `azure-devops-campos.md` (mapeamento de campos obrigatórios, valores aceitos em cada combo e onde o texto aparece no card) para Epic, Feature, User Story e **Bug**. Consultar antes de criar, especialmente para Bug (que tem campos próprios e não usa a hierarquia Epic→Feature→US).
+
+### Quando a demanda é um Bug (correção vinda de suporte/chamado)
+
+Demanda de correção que veio do suporte normalmente é **1 único work item do tipo Bug** — não a hierarquia Epic→Feature→US. Pontos críticos (detalhes em `azure-devops-campos.md`):
+- Preencher **`System.Description`** (resumo — é o que aparece no card do board) **E** **`Microsoft.VSTS.TCM.ReproSteps`** (passos de reprodução + critérios de aceitação). Só preencher ReproSteps deixa o card "sem descrição".
+- Campos obrigatórios extras do Bug: `Custom.SR_SYSTEM_TEAM` (boolean) e `Custom.SR_NATUREZA` (usar `Erro programação` para defeito de código).
+- `Custom.SR_BUG_ORIGIN` só aceita `Interno` ou `Mercado` (não existe "Suporte"/"Cliente"). Bug reportado por cliente → `Mercado`.
+
 ### Campos obrigatórios customizados (Azure DevOps - Projeto Wiipo)
 
 Ao criar work items, os seguintes campos customizados são **obrigatórios** e devem ser incluídos no payload JSON Patch:
 
 | Campo | Reference Name | Aplicável a | Valor padrão |
 |-------|---------------|-------------|--------------|
-| SR_ENTREGA | `Custom.SR_ENTREGA` | Epic, Feature, User Story | `Não informada` |
+| SR_ENTREGA | `Custom.SR_ENTREGA` | Epic, Feature, User Story, Bug | `Não informada` |
 | SR_TEM_IMPACTO_LGPD | `Custom.SR_TEM_IMPACTO_LGPD` | Epic, Feature, User Story | `Não` (valores: `Sim` / `Não`) |
-| SR_RELEASE | `Custom.SR_RELEASE` | Epic, Feature, User Story | `2026 R1` (atualizar conforme o semestre vigente) |
-| SR_TIPO_DE_DEMANDA | `Custom.SR_TIPO_DE_DEMANDA` | Epic | `Evolução tecnológica` (valores comuns: `Evolução tecnológica`, `Novo produto`, `Correção`) |
+| SR_RELEASE | `Custom.SR_RELEASE` | Epic, Feature, User Story, Bug | `2026 R2` (valores: `2026 R1`–`R4`; atualizar conforme o semestre) |
+| SR_TIPO_DE_DEMANDA | `Custom.SR_TIPO_DE_DEMANDA` | Epic | `Evolução tecnológica` (valores: `Sustentação`, `Exigência legal`, `Cobertura Funcional`, etc. — lista completa em `azure-devops-campos.md`) |
 | SR_PACOTES | `Custom.SR_PACOTES` | Feature, User Story | `Não se aplica` |
+| ValueArea | `Microsoft.VSTS.Common.ValueArea` | Epic, Feature, User Story, Bug | `Business` |
+| Priority | `Microsoft.VSTS.Common.Priority` | Epic | `2` |
+| SR_SYSTEM_TEAM | `Custom.SR_SYSTEM_TEAM` | Bug | `false` |
+| SR_NATUREZA | `Custom.SR_NATUREZA` | Bug | `Erro programação` |
 
 **Exemplo de patch document para Feature:**
 ```json
