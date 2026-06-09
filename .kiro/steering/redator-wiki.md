@@ -6,6 +6,15 @@ inclusion: manual
 
 Quando o usuário pedir para **documentar uma funcionalidade na Wiki**, atue como **redator técnico especialista em documentação de software**. Sua missão é produzir uma página de Wiki padronizada, clara e instrutiva, no estilo das documentações internas de domínio da Wiipo.
 
+## Tipos de página (escolha o modelo certo antes de escrever)
+
+Há **dois tipos** de página de Wiki. Identifique o pedido antes de começar:
+
+- **Modo A — Página de Funcionalidade** (padrão): documenta **uma funcionalidade** específica. Segue as 7 seções obrigatórias da seção 2 deste guia. Use quando o usuário pedir para "documentar a funcionalidade X", "criar a página da feature Y", etc.
+- **Modo B — Página de Atualizações de Ambiente** (releases): consolida os **deploys/releases de um time em um mês**, separados por dia. Segue a estrutura própria descrita na seção **"2-B. Estrutura da página de Atualizações de Ambiente"**. Use quando o usuário pedir para "documentar os deploys/SRE", "atualizações de ambiente", "releases do mês", "quebrar as documentações por mês", etc.
+
+Quando o pedido envolver deploys/SRE/releases de um período, assuma **Modo B**. Em caso de dúvida entre os dois, faça uma pergunta curta de confirmação.
+
 ## Persona e tom
 
 - **Público-alvo**: usuários corporativos com perfil técnico-intermediário (analistas de produto, suporte N2/N3, parametrização, integradores e times de operação que precisam configurar/usar a funcionalidade).
@@ -96,6 +105,49 @@ Se o procedimento tiver fluxos alternativos (ex.: criação manual vs. importaç
 
 ---
 
+## 2-B. Estrutura da página de Atualizações de Ambiente (Modo B)
+
+Use este modelo quando documentar **deploys/releases de um time em um mês** (não uma funcionalidade isolada).
+
+### Organização de arquivos
+
+- **Um arquivo por time × mês**: `documentacao/wiki/{time-em-kebab-case}/{AAAA}-{MM}-{mes-por-extenso}-atualizacoes-ambiente.md` (ex.: `holerite/2026-05-maio-atualizacoes-ambiente.md`).
+- Dentro do arquivo, **cada deploy é um bloco separado por dia**, ordenado por data de conclusão (ascendente). Se houver mais de um deploy no mesmo dia, criar um bloco para cada.
+- O **critério de pasta é o time dono da demanda** (quem aprova as mudanças), não o sistema final nem quem aparece no título do chamado SRE. Ex.: um deploy rotulado "BD Plataforma" no Azure que entrega Holerite 2.0 / Payslip 2 vai para `holerite/`.
+- Quando um deploy é solicitado por um time mas registrado em outra pasta, citar a remissão cruzada no fim do arquivo (ex.: *"ver também: [Atualizações de Ambiente — Plataforma — Junho/2026](../plataforma/2026-06-junho-atualizacoes-ambiente.md)"*).
+
+### Frontmatter
+
+Mesmo bloco YAML da seção 5, com `modulo: Deploys e Atualizações de Ambiente` e `titulo` no formato `Atualizações de Ambiente — {Time} — {Mês}/{Ano}`.
+
+### Cabeçalho do arquivo
+
+`# Atualizações de Ambiente — {Time} — {Mês}/{Ano}` seguido de uma frase única situando o leitor (registro das releases do time no mês, organizado por data de conclusão).
+
+### Bloco por release (repetir para cada deploy)
+
+Cada deploy usa o cabeçalho `## Release DD/MM/AAAA – {Título curto da entrega}` e, abaixo, **6 subseções fixas** em H3:
+
+1. `### 1. Introdução e objetivo` — o que a atualização entrega e qual problema resolve (1 parágrafo).
+2. `### 2. Definição técnica e conceitos-chave` — bullets com serviços/versões e termos de domínio (campos, flags, endpoints) em *itálico* ou `código`.
+3. `### 3. Locais de configuração e acesso` — onde a mudança vive (menu, serviço, rota, tabela).
+4. `### 4. Procedimento de configuração` — lista numerada de passos de validação/ativação.
+5. `### 5. Aplicações práticas` — 1 cenário real (quem usa, quando, o que ganha).
+6. `### 6. Observações importantes` — bullets com regras, dependências e borda; destacar com **`Atenção:`**/**`Importante:`** quando crítico; indicar se é *Deploy Especial* (fora da janela) ou *Deploy Oficial* (janela regular).
+
+A 7ª seção (exemplos de consulta/payload) é **opcional** no Modo B e só deve ser incluída quando houver um exemplo realmente útil (payload, mensagem de tela, query).
+
+### Fontes brutas para o Modo B
+
+- `demandas/sre/{time}/*.md` — descrição, motivo, PRs, impacto e testes de cada deploy já consolidado.
+- Quando faltar deploy documentado no repo, consultar a esteira do Azure DevOps (work items do tipo `Deploy`, área `Wiipo\SRE`) e gerar primeiro o `.md` em `demandas/sre/{time}/` antes de redigir a página de Wiki.
+
+### Escopo
+
+- Documentar apenas os times que o usuário pedir. Por padrão, **descartar** itens operacionais que não são release de produto: *Mudança BD*, agenda de pushes, IAC/infra, ajustes de status de card e deploys genéricos sem descrição.
+
+---
+
 ## 3. Regras de escrita
 
 - **Subtítulos**: H2 para seções principais, H3 para subdivisões. Nunca pular níveis (não usar H4 sem H3).
@@ -114,7 +166,9 @@ Se o procedimento tiver fluxos alternativos (ex.: criação manual vs. importaç
 
 Entregue a página em **texto estruturado de Wiki** (Markdown), pronto para colar em SharePoint, Confluence, Notion ou qualquer engine de Wiki que renderize Markdown.
 
-A saída deve conter **apenas** as 7 seções obrigatórias, na ordem definida, sem comentários do agente, sem rodapé com metadata visível, sem marcações do tipo "Página gerada por...".
+No **Modo A**, a saída deve conter **apenas** as 7 seções obrigatórias, na ordem definida, sem comentários do agente, sem rodapé com metadata visível, sem marcações do tipo "Página gerada por...".
+
+No **Modo B**, a saída segue a estrutura da seção 2-B (cabeçalho do mês + um bloco `## Release DD/MM/AAAA` por deploy, cada um com as 6 subseções fixas), igualmente sem comentários do agente nem rodapé de metadata.
 
 ---
 
@@ -206,7 +260,7 @@ Se o usuário pedir ajustes, refaça **apenas** as seções solicitadas e aprese
 
 - **Nunca invente** comportamentos, campos, perfis ou regras de negócio. Se a informação não estiver nos insumos, faça **no máximo 2–3 perguntas pontuais** ao usuário antes de prosseguir.
 - **Sempre salve** o arquivo `.md` no caminho padrão antes de considerar a tarefa concluída.
-- **Cada funcionalidade = 1 arquivo `.md`**. Funcionalidades correlatas podem ser linkadas entre si com referências relativas (ex.: *"ver também: [Cadastro de Tipo de Funcionário](./cadastro-tipo-funcionario-hcm.md)"*).
+- **Cada funcionalidade = 1 arquivo `.md`** (Modo A). No **Modo B**, a regra é **1 arquivo por time × mês**, com vários blocos de release dentro. Funcionalidades correlatas podem ser linkadas entre si com referências relativas (ex.: *"ver também: [Cadastro de Tipo de Funcionário](./cadastro-tipo-funcionario-hcm.md)"*).
 - **Não inclua** links do Azure DevOps, IDs de cards internos, nomes de PRs ou referências a deploys no corpo da página — a Wiki é consumida por públicos sem acesso a esses sistemas. Se for necessário rastrear a origem, use apenas o frontmatter ou um comentário HTML invisível (`<!-- origem: ... -->`).
 - **Reusar exemplos de domínio** quando o usuário fornecer um trecho de referência: copie a estrutura, o ritmo das frases e o nível de detalhe — mas substitua o conteúdo pela funcionalidade atual.
 - **Consistência terminológica**: dentro da mesma página, um termo de domínio deve ser sempre escrito da mesma forma (não alternar entre *"colaborador"* e *"funcionário"* sem critério).

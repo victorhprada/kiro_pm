@@ -12,7 +12,8 @@ Pergunte apenas o que estiver faltando — não faça questionário longo. Os da
 
 | Campo | Observação |
 |-------|------------|
-| **Sistema** | Plataforma / BD Plataforma / Flex / Holerite / SuperApp / Helpii / etc. |
+| **Squad solicitante** | Crédito / Holerite / Plataforma / SuperApp / MyPass / Flex. **Define o nome no título** (`Deploy {Squad}`) — crítico para os indicadores da Qualidade. |
+| **Sistema** | Serviço/repositório técnico que vai subir: Plataforma / BD Plataforma / Flex / Holerite / SuperApp / Helpii / mobile-backend / notification-service / etc. Vai no campo **Sistema** do `.md`, não no título. |
 | **Data do deploy** | Formato DD/MM/AAAA. Se não informado, usar data atual. |
 | **Resumo curto** | Vai compor o título. |
 | **PRs** | Lista de URLs (GitHub) ou indicação de implantação direta (S3/Dynamo/ECS/etc). |
@@ -21,6 +22,8 @@ Pergunte apenas o que estiver faltando — não faça questionário longo. Os da
 | **Funcionalidades alteradas** | Lista. |
 | **Produtos impactados** | Plataforma / Wiipoflex / Helpii / Consignado-Holerite Digital. |
 | **Áreas impactadas** | Operações / Marketing / Produto. |
+| **Janela de deploy** | Dentro da janela (`Deploy Oficial`) ou fora (`Deploy Especial`). Define a tag do SRE. |
+| **Envolve banco de dados?** | Se sim, adicionar tag `Mudança BD`. |
 | **Riscos / impacto negativo** | Quando aplicável. |
 | **Urgência** | Sim/Não + justificativa. |
 | **Testes em staging** | Confirmação ou justificativa de ausência. |
@@ -108,11 +111,27 @@ Quando o usuário pedir para criar deploys SRE para **todos os cards de uma raia
 
 Formato:
 ```
-[SRE] Deploy {Sistema} + DD/MM/AAAA + {Resumo curto}
+[SRE] Deploy {Squad} + DD/MM/AAAA + {Resumo curto}
 ```
 
+> ⚠️ **Regra da Qualidade — nome da squad no título é crítico para os indicadores.**
+> A Qualidade extrai e contabiliza os deploys **com base no nome da squad informado no título do SRE**, independentemente da tecnologia envolvida (app, web, backend, BD etc.). Se o nome estiver incorreto ou ausente, o deploy **não é contabilizado** nos indicadores. Use sempre o nome do **produto/squad dona da entrega**, nunca o nome do serviço/repositório.
+
+Mapa oficial produto/squad → nome no título:
+
+| Produto / Squad | Nome no título |
+|-----------------|----------------|
+| Crédito | `Deploy Crédito` |
+| Holerite | `Deploy Holerite` |
+| Plataforma | `Deploy Plataforma` |
+| SuperApp | `Deploy SuperApp` |
+| MyPass | `Deploy MyPass` |
+| Flex | `Deploy Flex` |
+
+> Mesmo que o sistema técnico que vai subir seja `wiipo-mobile-backend`, `notification-service`, `BD Plataforma` etc., o título deve usar o nome da squad (ex.: `Deploy Plataforma`). Detalhe o serviço/repositório específico no campo **Sistema** do `.md` e na **Descrição**, não no nome da squad do título.
+
 Exemplos reais válidos:
-- `[SRE] Deploy BD Plataforma + 13/05/2026 + Implementação de verificação de identidade via WAAPI Access Token`
+- `[SRE] Deploy Plataforma + 13/05/2026 + Implementação de verificação de identidade via WAAPI Access Token`
 - `[SRE] Deploy Flex 14/05/2026 - Remoção de vínculo legado do Wiipo Flex`
 - `[SRE] Deploy Holerite + 14/05/2026 + Alteração de campos para match na API`
 
@@ -269,8 +288,11 @@ Formato do .md (espelha o que vai pro Azure, sem HTML):
 | Campo | Valor |
 |-------|-------|
 | **Time** | SRE |
+| **Squad solicitante** | {Crédito / Holerite / Plataforma / SuperApp / MyPass / Flex} |
 | **Status** | Pendente aprovação |
 | **Tipo de Work Item** | Deploy |
+| **Tags do SRE** | Deploy Oficial / Deploy Especial / Mudança BD |
+| **Tag de contabilização (nas demandas)** | deploy-{MÊS}-2026 |
 | **Deploy ID** | _(preenchido após criação)_ |
 ```
 
@@ -286,20 +308,37 @@ Mostre o .md gerado e pergunte: "Está aprovado? Quer ajustar algo?". Aplique aj
    - `System.Description`: HTML completo do template da seção 2.
    - `System.AreaPath`: `Wiipo\\SRE`.
    - `System.IterationPath`: `Wiipo\\SRE` (o time SRE não usa sprints).
-3. **Tags opcional:** `Deploy Especial` quando o usuário marcar como urgente/de risco alto.
+3. **Tags obrigatórias no SRE (regra da Qualidade):** todo Deploy deve receber **uma** tag de janela e, quando aplicável, a tag de banco:
+   - `Deploy Oficial` → SRE realizado **dentro** da janela de Liberação (dias verdes no Calendário de Liberações — ver seção 7). **É o default** quando a data do deploy cai dentro da janela.
+   - `Deploy Especial` → SRE realizado **fora** da janela de Liberação (urgente / hotfix / risco alto, ou em período de Estabilização/Freezing).
+   - `Mudança BD` → adicionar **adicionalmente** sempre que o deploy envolver alteração em banco de dados (ex.: deploys de "BD Plataforma", migrations, scripts Dynamo/SQL).
+
+   > As tags são `System.Tags`, separadas por `;`. Ex.: `Deploy Oficial; Mudança BD`. **Para decidir a tag de janela, cruzar a data do deploy com o Calendário de Liberações (seção 7).** Se a data não estiver clara ou cair em zona de transição, perguntar pontualmente — **não assumir `Deploy Especial`** sem sinal de urgência/fora de janela.
 4. **Vínculos:** se houver demanda relacionada, criar link `System.LinkTypes.Related` (não `Hierarchy-Reverse` — o Deploy não é filho da User Story, é um chamado paralelo) com a URL `{orgUrl}/_apis/wit/workItems/{idDemanda}`.
 5. **Campos customizados:** o tipo Deploy **não** exige `Custom.SR_ENTREGA`, `SR_RELEASE`, `SR_PACOTES` etc. — esses são da hierarquia Epic/Feature/US. Não enviar.
 6. Atualizar o `.md` com o ID e URL do Deploy criado e mudar o status para "Criado no Azure DevOps".
-7. **Gerar e exibir a mensagem de aprovação para o time não-técnico** (ver seção 6 abaixo).
+7. **Tag de contabilização nas demandas relacionadas (regra da Qualidade):** em **cada US/BUG** que vai para produção neste deploy, adicionar a tag no padrão:
+   ```
+   deploy-{MÊS ATUAL EM PORTUGUÊS, MAIÚSCULO}-2026
+   ```
+   - Exemplo (junho/2026): `deploy-JUNHO-2026`. Em maio seria `deploy-MAIO-2026`.
+   - O mês é o **mês atual do deploy**, não o mês da criação da demanda.
+   - É a tag que a Qualidade usa para contar quantas tasks foram entregues em cada deploy. Sem ela, a entrega da squad **não é contabilizada**.
+   - Aplicar tanto em **US quanto em BUG**. Adicionar via `System.Tags` do work item da demanda (não do Deploy), preservando as tags já existentes.
+   - Meses (referência): JANEIRO, FEVEREIRO, MARÇO, ABRIL, MAIO, JUNHO, JULHO, AGOSTO, SETEMBRO, OUTUBRO, NOVEMBRO, DEZEMBRO.
+8. **Gerar e exibir a mensagem de aprovação para o time não-técnico** (ver seção 6 abaixo).
+
+> **Controle de bugs corrigidos (regra da Qualidade — apenas BUGs, não US):** sempre que um **BUG** for testado e aprovado por QA/Produto, ele deve ser movido para a coluna **Deploy** na raia de bugs, **mesmo que a correção ainda não suba para produção naquele momento**. É assim que a Qualidade identifica que o bug foi efetivamente corrigido. Não deixar bugs já testados/aprovados parados na coluna **Doing** da Qualidade, pois isso impede a contabilização. Quando o deploy contemplar um BUG, lembrar o usuário de garantir que o card esteja na coluna Deploy.
 
 ### Exemplo de patch document
 
 ```json
 [
-  { "op": "add", "path": "/fields/System.Title", "value": "[SRE] Deploy BD Plataforma + 14/05/2026 + Resumo" },
+  { "op": "add", "path": "/fields/System.Title", "value": "[SRE] Deploy Plataforma + 14/05/2026 + Resumo" },
   { "op": "add", "path": "/fields/System.Description", "value": "<html>...</html>" },
   { "op": "add", "path": "/fields/System.AreaPath", "value": "Wiipo\\SRE" },
   { "op": "add", "path": "/fields/System.IterationPath", "value": "Wiipo\\SRE" },
+  { "op": "add", "path": "/fields/System.Tags", "value": "Deploy Oficial" },
   {
     "op": "add",
     "path": "/relations/-",
@@ -310,6 +349,13 @@ Mostre o .md gerado e pergunte: "Está aprovado? Quer ajustar algo?". Aplique aj
   }
 ]
 ```
+
+> Para adicionar a tag `deploy-{MÊS}-2026` na demanda relacionada (US/BUG), fazer um PATCH separado **no work item da demanda**, preservando as tags existentes:
+> ```json
+> [
+>   { "op": "add", "path": "/fields/System.Tags", "value": "{tags-atuais}; deploy-JUNHO-2026" }
+> ]
+> ```
 
 ## 6. Mensagem de aprovação para o time não-técnico
 
@@ -355,3 +401,46 @@ Qualquer dúvida, estou à disposição!
 - O `.md` em `demandas/sre/{time-solicitante}/` é a fonte de verdade local — sempre salvar antes de criar no Azure.
 - Cada deploy = 1 arquivo `.md`.
 - Tom: profissional e técnico; use formatação clara (Markdown e HTML).
+
+## 7. Calendário de Liberações 2026 (janela de deploy)
+
+Este calendário é a **fonte de verdade para classificar a tag de janela do SRE** (`Deploy Oficial` vs `Deploy Especial`, ver seção 5, item 3). Cruze a **data do deploy** com o período correspondente abaixo.
+
+### Legenda (fases do ciclo)
+
+| Fase | Cor no calendário | Significado para o deploy |
+|------|-------------------|---------------------------|
+| **Liberações** | 🟩 Verde | Janela oficial de deploy. Deploy nesses dias → tag **`Deploy Oficial`**. |
+| **Estabilização** | 🟧 Laranja claro | Período de estabilização pós-liberação / pré-liberação. Deploy aqui é **fora da janela oficial** → tag **`Deploy Especial`** (salvo orientação contrária do time). |
+| **Freezing** | 🟪 Roxo | Congelamento (sem deploys planejados — tipicamente fim de ano). Deploy aqui é exceção → **`Deploy Especial`** e exige justificativa forte. |
+| **Feriado Nacional** | 🔵 Azul | Sem deploy. |
+| **Feriado Municipal** | 🟡 Amarelo | Sem deploy (Joinville/sede). |
+
+### Regra de classificação
+
+1. Pegue a **data do deploy** (DD/MM/2026).
+2. Veja em que fase ela cai no calendário do mês:
+   - Cair em dia de **Liberação (verde)** → `Deploy Oficial`.
+   - Cair em **Estabilização (laranja)**, **Freezing (roxo)**, feriado ou fim de semana → `Deploy Especial`.
+3. Em caso de dúvida sobre a fase exata do dia, **perguntar** — não assumir.
+
+### Janelas por mês (⚠️ PROVISÓRIO — pendente de confirmação do usuário)
+
+> As datas abaixo são minha **melhor leitura da imagem do calendário** e ainda **não estão confirmadas**. Como elas governam a tag que alimenta os indicadores da Qualidade, **trate como rascunho até o usuário validar**. Enquanto não confirmado, na dúvida da fase de um dia específico, perguntar.
+
+| Mês | Janela de Liberação (verde) | Observações |
+|-----|------------------------------|-------------|
+| Janeiro | _a confirmar_ | Feriado municipal dia 25 (azul/amarelo na imagem). |
+| Fevereiro | _a confirmar_ | Semana de Carnaval costuma entrar como estabilização/feriado. |
+| Março | _a confirmar_ | |
+| Abril | _a confirmar_ | |
+| Maio | _a confirmar_ | |
+| Junho | _a confirmar_ | |
+| Julho | _a confirmar_ | |
+| Agosto | _a confirmar_ | |
+| Setembro | _a confirmar_ | |
+| Outubro | _a confirmar_ | |
+| Novembro | _a confirmar_ | |
+| Dezembro | _a confirmar_ | Final do mês em **Freezing** (roxo) — congelamento de fim de ano. |
+
+> Assim que o usuário confirmar os dias exatos de cada fase, substituir os `_a confirmar_` pelos intervalos reais (ex.: "Liberação: 15–19/06; Estabilização: 08–12/06") e **remover o aviso de PROVISÓRIO**.
