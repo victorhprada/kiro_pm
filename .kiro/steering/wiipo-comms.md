@@ -34,6 +34,31 @@ Pergunte apenas o que estiver faltando — não faça questionário longo. Dados
 
 Se o usuário disser "use as entregas da semana de X a Y", filtre os `.md` por data de criação/conclusão dentro da janela e use os títulos + descrições como base bruta para os bullets.
 
+### Validação obrigatória na esteira do Azure DevOps
+
+⚠️ **Os arquivos `.md` em `demandas/` são apenas o rascunho da intenção — não provam que a funcionalidade foi entregue.** Um `.md` de deploy pode existir com a funcionalidade ainda em desenvolvimento, em teste ou só "Pendente aprovação". **Antes de colocar qualquer item na news, valide o estado real na esteira do Azure DevOps.**
+
+**Regra de ouro do "entregue na semana":** o sinal de verdade é o **work item de tipo `Deploy` (SRE) fechado dentro da janela** (`System.State` em `Closed`/`Done`/`Resolved` com `ClosedDate` na semana). O estado da US/Bug sozinho **não basta** — uma US pode estar `Resolved` na coluna `Deploy` (código pronto) sem nunca ter subido para produção.
+
+- ✅ **Entra na news:** existe Deploy fechado na semana **OU** a demanda (US/Bug/Feature/Epic) está `Closed`/`Done`/`Resolved` com data de conclusão na janela.
+- ❌ **Fica fora:** Deploy inexistente / `.md` em "Pendente aprovação" sem Deploy ID, ou demanda ainda em `New`/`Active`/`Test` sem deploy correspondente fechado. (Lag de board — Bug em `Test` mas com Deploy já fechado — conta como entregue: o que vale é o deploy em produção.)
+
+**Como consultar (credenciais e padrão já usados no projeto):**
+
+1. Carregar `AZURE_DEVOPS_ORG_URL` e `AZURE_DEVOPS_PAT` do `.env`.
+2. Coletar os IDs de work item citados nos `.md` da semana: tanto as demandas (US/Bug/Feature/Epic em "Demanda(s) relacionada(s)") quanto os **Deploy ID** na seção Metadata.
+3. Rodar um script `tsx` inline ou em `scripts/` usando `azure-devops-node-api` (SDK já instalado), no padrão dos scripts existentes (`scripts/list-plataforma-em-andamento.ts`):
+   ```typescript
+   import 'dotenv/config';
+   import * as azdev from 'azure-devops-node-api';
+   const conn = new azdev.WebApi(process.env.AZURE_DEVOPS_ORG_URL!, azdev.getPersonalAccessTokenHandler(process.env.AZURE_DEVOPS_PAT!));
+   const wit = await conn.getWorkItemTrackingApi();
+   const items = await wit.getWorkItems(ids, ['System.WorkItemType','System.State','System.BoardColumn','Microsoft.VSTS.Common.ClosedDate','System.Tags']);
+   ```
+4. Cruzar o estado retornado com a regra de ouro acima e **só escrever bullets para os itens efetivamente entregues**. Os demais ficam registrados no "Material de apoio" como fora da news, com o motivo (ex.: "ainda não subiu — US em Resolved, sem Deploy fechado").
+
+> **Nunca afirmar que algo foi entregue sem confirmar na esteira.** Na dúvida sobre o estado de um item, consultar o Azure antes de escrever — não assumir pelo `.md`.
+
 ---
 
 ## 2. Tom de voz e estilo
