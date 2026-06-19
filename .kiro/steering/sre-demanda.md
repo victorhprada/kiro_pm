@@ -326,7 +326,7 @@ Mostre o .md gerado e pergunte: "Está aprovado? Quer ajustar algo?". Aplique aj
    - É a tag que a Qualidade usa para contar quantas tasks foram entregues em cada deploy. Sem ela, a entrega da squad **não é contabilizada**.
    - Aplicar tanto em **US quanto em BUG**. Adicionar via `System.Tags` do work item da demanda (não do Deploy), preservando as tags já existentes.
    - Meses (referência): JANEIRO, FEVEREIRO, MARÇO, ABRIL, MAIO, JUNHO, JULHO, AGOSTO, SETEMBRO, OUTUBRO, NOVEMBRO, DEZEMBRO.
-8. **Gerar e exibir a mensagem de aprovação para o time não-técnico** (ver seção 6 abaixo).
+8. **Gerar a mensagem de aprovação para o time não-técnico** (ver seção 6 abaixo). **Sempre anexar a mensagem ao próprio `.md`** do deploy, em uma seção `## Mensagem de aprovação` ao final do arquivo, além de exibi-la para o usuário. Esse é o padrão dos deploys já existentes (ex.: `demandas/sre/holerite/`). Não considere o fluxo concluído enquanto a seção não estiver no `.md`.
 
 > **Controle de bugs corrigidos (regra da Qualidade — apenas BUGs, não US):** sempre que um **BUG** for testado e aprovado por QA/Produto, ele deve ser movido para a coluna **Deploy** na raia de bugs, **mesmo que a correção ainda não suba para produção naquele momento**. É assim que a Qualidade identifica que o bug foi efetivamente corrigido. Não deixar bugs já testados/aprovados parados na coluna **Doing** da Qualidade, pois isso impede a contabilização. Quando o deploy contemplar um BUG, lembrar o usuário de garantir que o card esteja na coluna Deploy.
 
@@ -359,7 +359,12 @@ Mostre o .md gerado e pergunte: "Está aprovado? Quer ajustar algo?". Aplique aj
 
 ## 6. Mensagem de aprovação para o time não-técnico
 
-Após criar o chamado no Azure DevOps, **sempre** gerar e exibir a mensagem abaixo para o usuário encaminhar ao time responsável pela aprovação (Produto, Operações, etc.). O objetivo é comunicar o que vai subir em linguagem acessível, sem jargão técnico, e solicitar o aval formal antes da janela de deploy.
+Após criar o chamado no Azure DevOps, **sempre** gerar a mensagem abaixo e:
+
+1. **Anexá-la ao próprio `.md`** do deploy, em uma seção `## Mensagem de aprovação` ao final do arquivo (após o bloco de Metadata, separada por `---`). É o padrão dos deploys já existentes — a mensagem fica versionada junto com o chamado.
+2. **Exibi-la também na resposta** para o usuário encaminhar ao time responsável pela aprovação (Produto, Operações, etc.).
+
+O objetivo é comunicar o que vai subir em linguagem acessível, sem jargão técnico, e solicitar o aval formal antes da janela de deploy.
 
 ### Template da mensagem
 

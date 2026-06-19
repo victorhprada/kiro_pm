@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(GH_CONFIG_DIR=$HOME/.gh-config gh api *)",
+      "Bash(GH_CONFIG_DIR=/Users/victorhugopradateixeira/.gh-config gh api repos/wiipobr/wiipo-lambdas-processing/pulls/178/files --jq '.[] | select\\(.filename | test\\(\"CHANGELOG\"; \"i\"\\)\\) | .patch')"
+    ]
+  }
+}
