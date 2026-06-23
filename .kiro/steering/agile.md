@@ -197,7 +197,7 @@ A regra-mãe deste fluxo: **só move se a sprint de destino existir.** Se a últ
 
 ## B1. Levantar os cards "em andamento" por time
 
-Para cada time (`Plataforma`, `Holerite`), buscar as US/BUG que **não estão encerradas**. "Em andamento" = qualquer estado fora de `Closed`/`Removed`/`Resolved`/`Dropped` (inclui `New`, `Ready`, `Active`, `Review`, `Test` — ou seja, tudo que ainda “vive” no board).
+Para cada time (`Plataforma`, `Holerite`), buscar as US/BUG que **não estão encerradas**. "Em andamento" = qualquer estado fora de `Closed`/`Removed`/`Resolved`/`Dropped` (inclui `New`, `Ready`, `Active`, `Review`, `Test`). Em seguida, **separar em grupos**: cards **bloqueados** (lane `Blocked`) e cards de **backlog/raiz** (sem sprint) ficam de fora do lote padrão; só o **em andamento real** (não bloqueado e numa sprint anterior) é carregado (ver bullets de separação abaixo).
 
 ```typescript
 const wiql = (areaPath: string) => ({
@@ -214,8 +214,11 @@ const wiql = (areaPath: string) => ({
 ```
 
 - Rodar uma vez por time (`Wiipo\Plataforma` e `Wiipo\Holerite`).
-- Hidratar com `System.IterationPath`, `System.State`, `System.BoardColumn`, `System.Title`, `System.Tags`, `System.AssignedTo`.
+- Hidratar com `System.IterationPath`, `System.State`, `System.BoardColumn`, `System.BoardLane`, `Microsoft.VSTS.CMMI.Blocked`, `System.Title`, `System.Tags`, `System.AssignedTo`.
 - **Excluir do conjunto** os cards que o Fluxo A acabou de fechar (já estão `Closed`). O foco do Fluxo B é exatamente o que **ficou aberto**.
+- **Separar os cards bloqueados.** Um card está bloqueado quando está na **swimlane Blocked** (`System.BoardLane = 'Blocked'`) ou tem `Microsoft.VSTS.CMMI.Blocked = 'Yes'`. Bloqueado **não é "em andamento" de verdade** — está travado esperando algo. Esses cards são **listados num grupo à parte** e, por padrão, **não são movidos** para a nova sprint (precisam de desbloqueio/decisão primeiro). Só entram no lote de movimentação com a flag explícita `--mover-bloqueados`. Atenção: a lane `Blocked` é o sinal; outras swimlanes (ex.: `Bugs`) **não** indicam bloqueio.
+- **Separar os cards de backlog/raiz.** Cards cujo `IterationPath` **não é de sprint** (raiz do projeto/time — ex.: `Wiipo`, `Wiipo\Plataforma`, `Wiipo\Holerite`) são **cards de demanda** recém-criados, **não trabalho em andamento numa sprint**. São **listados num grupo à parte** e, por padrão, **não são movidos**. Só entram no lote com a flag explícita `--mover-backlog`.
+- Depois das separações, **"em andamento real"** = US/BUG **não bloqueado**, **numa sprint anterior** (IterationPath de sprint diferente da sprint de destino). **Só esses são carregados por padrão** para a última sprint criada.
 
 > Refinamento comum: o usuário pode querer mover só os cards de uma sprint específica (ex.: "carrega o que ficou da Sprint - Maio"). Nesse caso, adicionar `AND [System.IterationPath] = 'Wiipo\\{Time}\\Sprint - Maio'` ao WIQL. Sem isso, considere todos os cards em andamento do board (que tipicamente estão em sprints anteriores à atual).
 
@@ -273,7 +276,9 @@ Higiene de sprint — Holerite  (destino: Wiipo\Holerite\Janela de Junho)
   #3110  [Bug]         Test     Janela de Maio  → Janela de Junho
 ```
 
-Resumo: `X cards serão movidos para a última sprint, Y já estão nela`. Se algum time caiu no aviso do B2, deixar claro: `Holerite: sprint de destino não criada — 0 movidos, ação necessária: criar a sprint`.
+Resumo: `X cards em andamento real serão movidos para a última sprint, Y já estão nela, Z bloqueados (separados), W backlog/raiz (separados)`. Se algum time caiu no aviso do B2, deixar claro: `Holerite: sprint de destino não criada — 0 movidos, ação necessária: criar a sprint`.
+
+> Os **cards bloqueados** (lane `Blocked`) e os **cards de backlog/raiz** (sem sprint) aparecem em blocos próprios do plano, marcados como "não movido". Bloqueados precisam de tratamento (desbloqueio/decisão); backlog/raiz são cards de demanda. Eles só entram na movimentação com `--mover-bloqueados` / `--mover-backlog`, respectivamente.
 
 Perguntar: **"Confirma mover esses N cards para a última sprint? (ou rode em --dry-run)"**. Só seguir com aval explícito.
 
@@ -295,9 +300,9 @@ Regras:
 - Se a sprint de destino não passou na validação do B2, **pular o time inteiro** e reportar a ação necessária (criar a sprint). Nunca mover para uma sprint vencida sem aval explícito.
 - Preservar todo o resto: assignee, descrição, board column.
 
-## B5. (Opcional) Cards sem nenhuma sprint
+## B5. Cards sem nenhuma sprint (backlog/raiz) — separados, não movidos
 
-Se houver cards em andamento **sem `IterationPath`** de sprint (ex.: caídos no backlog raiz `Wiipo\{Time}`), tratá-los igual aos demais: candidatos a ir para a última sprint criada. Apenas sinalizar na tabela do B3 que a origem era o backlog, para o usuário confirmar.
+Cards em andamento **sem `IterationPath` de sprint** (no backlog raiz `Wiipo\{Time}` ou na raiz do projeto `Wiipo`) são **cards de demanda** recém-criados, **não trabalho em andamento numa sprint**. Por isso são **separados num grupo próprio e não movidos por padrão** — diferente do "em andamento real", que vive numa sprint anterior. Eles só entram no lote de movimentação com a flag explícita `--mover-backlog`. Sempre listá-los à parte (com a iteration de origem) para o usuário decidir.
 
 ## B6. Avaliar a Feature e o Épico pais dos cards movidos
 
@@ -376,7 +381,7 @@ Ao final de cada execução (o log de higiene do Fluxo B é gerado também em `-
 
 - **Resultado consolidado** no console:
   - Fluxo A: `N fechados para Closed, M já fechados, K falhas` (listando IDs) e, para cada card fechado, qual tag `deploy-{MÊS}-2026` foi aplicada (ou já existia).
-  - Fluxo B: `P cards movidos para a última sprint, Q já na sprint, R times sem sprint de destino (ação: criar sprint)`. Quando os pais forem avaliados, acrescentar `S Feature(s) movida(s), T mantida(s), U Epic(s) avaliado(s)`.
+  - Fluxo B: `P cards em andamento real movidos para a última sprint, Q já na sprint, B bloqueados (separados), K backlog/raiz (separados), R times sem sprint de destino (ação: criar sprint)`. Quando os pais forem avaliados, acrescentar `S Feature(s) movida(s), T mantida(s), U Epic(s) avaliado(s)`.
 - **Log de fechamento por time** (Fluxo A) em `demandas/sre/fechamentos/{time}/log-fechamento-demandas.md`. Cada execução do `--apply` anexa uma seção datada (`## Execução DD/MM/AAAA HH:MM`) com a tabela `ID | Tipo | Título | De (estado / coluna) | Para | Tag | Resultado`. A pasta do time é criada automaticamente; o arquivo acumula histórico, não sobrescreve.
 - **Log de higiene de sprint por time** (Fluxo B) em `demandas/sre/fechamentos/{time}/log-higiene-sprint.md`. **Gerado tanto no dry-run (como `PREVIEW`, para validar antes de confirmar) quanto no `--apply` (registrando o que foi efetivado)** — cada execução anexa uma seção datada. Cada seção traz: (a) as **regras aplicadas** (como os cards foram selecionados, como a sprint de destino é escolhida/validada e os critérios de Feature/Epic); (b) a tabela de cards `ID | Tipo | Estado | Sprint origem | Sprint destino | Motivo | Resultado`; (c) a tabela de pais `ID | Tipo | Estado | Iteration atual | Decisão | Motivo`. Incluir as Features/Epics avaliadas (movidas ou mantidas, com o motivo). Quando o time cair no aviso de "sprint não criada"/"sprint vencida", registrar a **ação necessária** em vez de movimentações. A pasta do time é criada automaticamente; o arquivo acumula histórico, não sobrescreve.
 - Para cada Deploy processado que tenha um `.md` em `demandas/sre/{time}/`, atualizar a seção **Demanda(s) relacionada(s)** indicando que os cards foram encerrados (ex.: anexar `(Closed em DD/MM/AAAA)` ao item) e, se fizer sentido, registrar na **Metadata** que o pós-deploy foi concluído.
@@ -398,7 +403,7 @@ Reaproveitar a infra existente:
 Se o usuário pedir um runner dedicado, criar em `scripts/` (ex.: `scripts/agile-higiene-board.ts`) seguindo esses padrões, sempre com:
 1. `--dry-run` por padrão exibindo os planos das seções A4 e B3.
 2. Flag explícita (ex.: `--apply`) para efetivar as mudanças dos passos A5 e B4.
-3. Flags de escopo úteis: `--fluxo=a|b|ambos` (default `ambos`), `--time=plataforma|holerite|ambos`, `--since=AAAA-MM-DD` (janela dos Deploys do Fluxo A), `--sprint='Sprint - Maio'` (origem opcional no Fluxo B), `--mover-pais` (opt-in para mover as Features sugeridas no B6; sem ela, pais só são listados).
+3. Flags de escopo úteis: `--fluxo=a|b|ambos` (default `ambos`), `--time=plataforma|holerite|ambos`, `--since=AAAA-MM-DD` (janela dos Deploys do Fluxo A), `--sprint='Sprint - Maio'` (origem opcional no Fluxo B), `--mover-pais` (opt-in para mover as Features sugeridas no B6; sem ela, pais só são listados), `--mover-bloqueados` (opt-in para incluir os cards da lane `Blocked`; sem ela, ficam separados), `--mover-backlog` (opt-in para incluir os cards de backlog/raiz sem sprint; sem ela, ficam separados).
 4. Carregamento de credenciais via `dotenv/config` (`AZURE_DEVOPS_ORG_URL`, `AZURE_DEVOPS_PAT`).
 
 ---
@@ -410,6 +415,8 @@ Se o usuário pedir um runner dedicado, criar em `scripts/` (ex.: `scripts/agile
 - **Fluxo A só fecha** US/BUG vinculados via `Related` a um Deploy `Closed`. **Fluxo B só move** o `IterationPath` de cards em andamento (US/BUG e, sob confirmação explícita, suas Features/Epics) — nunca altera estado nem tags.
 - **Sprint de destino tem que existir.** Se a última sprint criada do time não existir (ou já estiver vencida sem uma nova), **não mover** — avisar que a sprint precisa ser criada. Nunca criar iteration automaticamente.
 - **Pai não move em silêncio.** Mover Feature/Epic é opt-in (`--mover-pais` + confirmação) e só quando todos os filhos abertos já acompanham a sprint de destino. Epic, por padrão, só é listado. Em caso de dúvida, **manter o pai** e reportar.
+- **Cards bloqueados ficam de fora por padrão.** US/BUG na lane `Blocked` (`System.BoardLane = 'Blocked'`) ou com `Microsoft.VSTS.CMMI.Blocked = 'Yes'` são separados dos "em andamento" e **não são movidos** sem `--mover-bloqueados`. Bloqueio significa trabalho travado que precisa de tratamento antes de seguir para a próxima sprint.
+- **Cards de backlog/raiz ficam de fora por padrão.** US/BUG cujo `IterationPath` não é de sprint (raiz `Wiipo`/`Wiipo\{Time}`) são cards de demanda, não trabalho em andamento — separados e **não movidos** sem `--mover-backlog`. Só "em andamento real" (não bloqueado, numa sprint anterior) é carregado por padrão.
 - **Nunca inventar** IDs, vínculos, sprints ou justificativas. Se um Deploy não tiver relations, reportar como "sem demandas vinculadas". Se o time não tiver sprint, reportar como "sem sprint de destino" — não adivinhar nomes de sprint.
 - **Preservar dados existentes** (tags pré-existentes, descrição, assignee, board column). O Fluxo A altera `System.State` e **acrescenta** a tag `deploy-{MÊS}-2026`; o Fluxo B altera **apenas** `System.IterationPath`.
 - Tom: profissional e técnico; sempre deixar claro o que foi alterado e o que ficou de fora.

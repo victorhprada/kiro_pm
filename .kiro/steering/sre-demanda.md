@@ -17,7 +17,7 @@ Pergunte apenas o que estiver faltando — não faça questionário longo. Os da
 | **Data do deploy** | Formato DD/MM/AAAA. Se não informado, usar data atual. |
 | **Resumo curto** | Vai compor o título. |
 | **PRs** | Lista de URLs (GitHub) ou indicação de implantação direta (S3/Dynamo/ECS/etc). |
-| **Demanda(s) relacionada(s)** | URLs ou IDs de work items no Azure DevOps. |
+| **Demanda(s) relacionada(s)** | **OBRIGATÓRIO.** URLs ou IDs de work items (US/BUG) no Azure DevOps. **Não criar o SRE sem pelo menos uma demanda para vincular** — ver regra bloqueante abaixo. |
 | **Tipo de alteração** | Melhoria / Segurança / Bugfix / Nova funcionalidade (uma ou mais). |
 | **Funcionalidades alteradas** | Lista. |
 | **Produtos impactados** | Plataforma / Wiipoflex / Helpii / Consignado-Holerite Digital. |
@@ -28,6 +28,18 @@ Pergunte apenas o que estiver faltando — não faça questionário longo. Os da
 | **Urgência** | Sim/Não + justificativa. |
 | **Testes em staging** | Confirmação ou justificativa de ausência. |
 | **Documentação relacionada** | Links ou "Não se aplica". |
+
+> ⚠️ **Regra bloqueante — vínculo de demanda é obrigatório.**
+> **Nenhum chamado de Deploy do SRE pode ser criado sem ao menos uma demanda (US/BUG) do Azure DevOps para vincular** via `System.LinkTypes.Related`. O Deploy é um chamado paralelo de rastreabilidade e a Qualidade só contabiliza a entrega quando há vínculo + tag `deploy-{MÊS}-2026` na demanda.
+>
+> Fluxo obrigatório:
+> 1. **Sempre solicitar o ID/URL do work item** (US ou BUG) antes de criar o SRE. Pedir explicitamente caso o usuário não tenha informado.
+> 2. **Tentar inferir pelo PR primeiro:** ler título, corpo e commits do PR (`gh api`) atrás de referência ao work item (`AB#1234`, link `dev.azure.com/.../_workitems/edit/1234`, menção a `#1234`). Se encontrar, confirmar com o usuário em vez de perguntar do zero.
+> 3. Se **não houver** referência no PR e o usuário **não** souber o ID: **não criar o SRE**. Parar e pedir a demanda. Não usar placeholder "Não informada" nem prosseguir sem vínculo.
+> 4. **Nunca inventar** um ID de work item.
+>
+> Observação técnica: a varredura automática (`DeployBoardCollector`) liga **card → PR** (varre comentários do card atrás de URLs de PR), não o inverso. Portanto, descobrir a demanda a partir do PR só funciona se o número do work item estiver escrito no próprio PR.
+
 
 ### Acesso ao GitHub (repos privados da wiipobr)
 
@@ -82,6 +94,7 @@ gh api repos/wiipobr/{repo}/pulls/{number}/commits \
 - Se o usuário fornecer **ID/URL de work item** do Azure DevOps, consultar via API e extrair: título, descrição (resumo curto), critérios de aceitação, área. Usar isso para preencher Descrição, Motivo e Funcionalidades sem perguntar de novo.
 - Se o usuário fornecer **link de PR do GitHub**, perguntar título e descrição do PR (ou pedir colagem) — não temos acesso direto ao GitHub, mas o link entra na seção PRs do chamado.
 - Se faltar apenas 1-2 campos críticos, perguntar pontualmente. **Nunca inventar** PRs, dados técnicos ou justificativas.
+- **Demanda relacionada é obrigatória e bloqueante:** se o usuário não informar e não for possível inferir pelo PR, **parar e solicitar** antes de criar o SRE (ver regra bloqueante na seção 1).
 
 ### Varredura automática de PRs no board (modo lote)
 
@@ -314,7 +327,7 @@ Mostre o .md gerado e pergunte: "Está aprovado? Quer ajustar algo?". Aplique aj
    - `Mudança BD` → adicionar **adicionalmente** sempre que o deploy envolver alteração em banco de dados (ex.: deploys de "BD Plataforma", migrations, scripts Dynamo/SQL).
 
    > As tags são `System.Tags`, separadas por `;`. Ex.: `Deploy Oficial; Mudança BD`. **Para decidir a tag de janela, cruzar a data do deploy com o Calendário de Liberações (seção 7).** Se a data não estiver clara ou cair em zona de transição, perguntar pontualmente — **não assumir `Deploy Especial`** sem sinal de urgência/fora de janela.
-4. **Vínculos:** se houver demanda relacionada, criar link `System.LinkTypes.Related` (não `Hierarchy-Reverse` — o Deploy não é filho da User Story, é um chamado paralelo) com a URL `{orgUrl}/_apis/wit/workItems/{idDemanda}`.
+4. **Vínculos (obrigatório):** todo Deploy **deve** ter ao menos um link `System.LinkTypes.Related` (não `Hierarchy-Reverse` — o Deploy não é filho da User Story, é um chamado paralelo) com a URL `{orgUrl}/_apis/wit/workItems/{idDemanda}`. **Não criar o work item de Deploy sem demanda vinculada** — se não houver, voltar à seção 1 e solicitar.
 5. **Campos customizados:** o tipo Deploy **não** exige `Custom.SR_ENTREGA`, `SR_RELEASE`, `SR_PACOTES` etc. — esses são da hierarquia Epic/Feature/US. Não enviar.
 6. Atualizar o `.md` com o ID e URL do Deploy criado e mudar o status para "Criado no Azure DevOps".
 7. **Tag de contabilização nas demandas relacionadas (regra da Qualidade):** em **cada US/BUG** que vai para produção neste deploy, adicionar a tag no padrão:
@@ -403,6 +416,7 @@ Qualquer dúvida, estou à disposição!
 - **Nunca inventar** PRs, IDs, justificativas ou dados técnicos.
 - Se o usuário passar IDs/URLs do Azure DevOps, **consultar a API** antes de perguntar — extrair título, descrição e área para já preencher campos do template.
 - Se faltar info crítica e não for inferível, fazer **no máximo 2-3 perguntas pontuais**.
+- **Vínculo de demanda (US/BUG) é pré-requisito inegociável para criar o SRE** — nunca prosseguir sem ele.
 - O `.md` em `demandas/sre/{time-solicitante}/` é a fonte de verdade local — sempre salvar antes de criar no Azure.
 - Cada deploy = 1 arquivo `.md`.
 - Tom: profissional e técnico; use formatação clara (Markdown e HTML).
